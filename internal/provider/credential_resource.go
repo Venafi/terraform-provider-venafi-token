@@ -3,29 +3,42 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
-	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/terraform-providers/terraform-provider-venafi-token/internal/model"
+	"github.com/terraform-providers/terraform-provider-venafi-token/internal/vcertclient"
 )
 
 const (
-	// Attributes of the resource
+	// attributes of the resource
 	fURL            = "url"
 	fUsername       = "username"
 	fPassword       = "password"
-	fP12Cert        = "p12_cert"
-	fP12Password    = "p12_password"
+	fP12Cert        = "p12_cert_filename"
+	fP12Password    = "p12_cert_password"
 	fAccessToken    = "access_token"
 	fRefreshToken   = "refresh_token"
 	fClientID       = "client_id"
 	fExpirationDate = "expiration"
 	fTrustBundle    = "trust_bundle"
+	fRefreshWindow  = "refresh_window"
+
+	// messages
+	msgCredentialResourceError = "credential resource error"
+	msgImportFail              = "failed to import certificate resource"
+
+	// default values
+	defaultClientID      = "hashicorp-terraform-by-venafi"
+	defaultRefreshWindow = 30 // in days
+
+	resourceNameSuffix = "credential"
 )
 
 var (
@@ -40,7 +53,7 @@ func NewCredentialResource() resource.Resource {
 type CredentialResource struct{}
 
 func (r *CredentialResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "venafi_credential"
+	resp.TypeName = fmt.Sprintf("%s_%s", req.ProviderTypeName, resourceNameSuffix)
 }
 
 func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -50,216 +63,210 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 		Attributes: map[string]schema.Attribute{
 			fURL: schema.StringAttribute{
 				MarkdownDescription: "The Venafi TLSPDC URL. Example: https://tpp.venafi.example/vedsdk",
-				//Optional:            true,
-				Required: true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
+				Optional:            true,
+				Computed:            true,
 			},
 			fUsername: schema.StringAttribute{
 				MarkdownDescription: "Username to authenticate to TLSPDC and request a new token",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
+				Computed:            true,
 			},
 			fPassword: schema.StringAttribute{
 				MarkdownDescription: "Password to authenticate to TLSPDC and request a new token",
 				Optional:            true,
+				Computed:            true,
 				Sensitive:           true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
 			},
 			fP12Cert: schema.StringAttribute{
 				MarkdownDescription: "base64-encoded PKCS#12 keystore containing a vcert certificate, private key, and chain certificates to authenticate to TLSPDC",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
+				Computed:            true,
 			},
 			fP12Password: schema.StringAttribute{
 				MarkdownDescription: "Password for the PKCS#12 keystore declared in p12_cert",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
+				Computed:            true,
 			},
 			fAccessToken: schema.StringAttribute{
 				MarkdownDescription: "Access token used for authorization to TLSPDC",
 				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
+					credentialUnknownModifier{},
 				},
 			},
 			fRefreshToken: schema.StringAttribute{
 				MarkdownDescription: "Token used to request a new token pair (access/refresh token) from a TLSPDC instance",
 				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
+					credentialUnknownModifier{},
 				},
 			},
 			fClientID: schema.StringAttribute{
 				MarkdownDescription: "Application that will be using the token",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
+				Computed:            true,
 			},
 			fExpirationDate: schema.Int64Attribute{
 				MarkdownDescription: "Expiration date of the access token",
 				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					timeoutUnknownModifier{},
+					credentialUnknownModifier{},
 				},
 			},
 			fTrustBundle: schema.StringAttribute{
 				MarkdownDescription: "Use to specify a base64-encoded, PEM-formatted file that contains certificates to be trust anchors for all communications with the Venafi TLSPDC instance",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					timeoutUnknownModifier{},
-				},
+				Computed:            true,
+			},
+			fRefreshWindow: schema.Int64Attribute{
+				MarkdownDescription: "number of days before expiration where a token refresh should be done",
+				Optional:            true,
+				Computed:            true,
 			},
 		},
 	}
 }
 
-type credentialResourceData struct {
-	URL            types.String `tfsdk:"url"`
-	Username       types.String `tksdk:"username"`
-	Password       types.String `tfsdk:"password"`
-	P12Certificate types.String `tfsdk:"p12_cert"`
-	P12Password    types.String `tfsdk:"p12_password"`
-	AccessToken    types.String `tfsdk:"acccess_token"`
-	RefreshToken   types.String `tfsdk:"refresh_token"`
-	ClientID       types.String `tfsdk:"client_id"`
-	ExpirationDate types.Int64  `tfsdk:"expiration"`
-	TrustBundle    types.String `tfsdk:"trust_bundle"`
-}
-
 func (r *CredentialResource) Create(_ context.Context, _ resource.CreateRequest, resp *resource.CreateResponse) {
-	resp.Diagnostics.AddError("credential resource error", "credential resource cannot be created only imported.")
+	resp.Diagnostics.AddError(msgCredentialResourceError, "credential resource cannot be created, only imported.")
 	return
 }
 
-func (r *CredentialResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
+func (r *CredentialResource) Read(ctx context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 	// Not possible
+	tflog.Info(ctx, "ACCESSING VENAFI_CREDENTIAL READ OPERATION")
 }
 
 func (r *CredentialResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	//var state credentialResourceData
-	//var data credentialResourceData
-	//
-	//diags := req.Plan.Get(ctx, &data)
-	//resp.Diagnostics.Append(diags...)
-	//if resp.Diagnostics.HasError() {
-	//	return
-	//}
-	//
-	//diags = req.State.Get(ctx, &state)
-	//resp.Diagnostics.Append(diags...)
-	//if resp.Diagnostics.HasError() {
-	//	return
-	//}
-	//
-	//client := client.New()
-	//var resultJson refreshResponse
-	//err := client.Request(ctx, "tooling.tokens.rotate?refresh_token="+state.RefreshToken.ValueString(), &resultJson)
-	//if err != nil {
-	//	resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to rotate token, got error: %s", err))
-	//	return
-	//}
-	//
-	//data.Token = types.StringValue(resultJson.Token)
-	//data.Expires = types.Int64Value(resultJson.Expires - 60*60*3)
-	//data.RefreshToken = types.StringValue(resultJson.RefreshToken)
-	//
-	//diags = resp.State.Set(ctx, &data)
-	//resp.Diagnostics.Append(diags...)
+	tflog.Info(ctx, "updating credential resource")
+
+	var data model.CredentialResourceData
+	var state model.CredentialResourceData
+
+	diags := req.Plan.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	client := vcertclient.New(ctx, state)
+	clientResp, err := client.RequestNewTokenPair()
+	if err != nil {
+		tflog.Error(ctx, fmt.Sprintf("client error: %s", err.Error()))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to rotate token, got error: %s", err))
+		return
+	}
+
+	data.AccessToken = types.StringValue(clientResp.AccessToken)
+	data.ExpirationDate = types.Int64Value(clientResp.Expires)
+	data.RefreshToken = types.StringValue(clientResp.RefreshToken)
+
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *CredentialResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	tflog.Info(ctx, "deleting credential resource")
+	var state model.CredentialResourceData
+
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	client := vcertclient.New(ctx, state)
+	err := client.RevokeToken()
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete credential resource: %s", err.Error()))
+		return
+	}
+
 	resp.State.RemoveResource(ctx)
 }
 
 func (r *CredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("refresh_token"), req, resp)
+	tflog.Info(ctx, "importing credential resource")
 	id := req.ID
 
 	dataMap, err := getValuesMap(ctx, id)
 	if err != nil {
-		resp.Diagnostics.AddError(err.Error(), "")
+		details := fmt.Sprintf("%s: %s", msgImportFail, err.Error())
+		resp.Diagnostics.AddError(msgCredentialResourceError, details)
 		return
 	}
-	data := &credentialResourceData{}
+	tflog.Debug(ctx, fmt.Sprintf("field map: %v", dataMap))
 
-	msg := "saving %s attribute to terraform state"
+	data := model.CredentialResourceData{}
+
+	msg := "saving attribute to terraform state: [%s]=%s"
 	if val, ok := dataMap[fURL]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fURL))
+		tflog.Info(ctx, fmt.Sprintf(msg, fURL, val))
 		data.URL = types.StringValue(val)
 	}
 	if val, ok := dataMap[fUsername]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fUsername))
+		tflog.Info(ctx, fmt.Sprintf(msg, fUsername, val))
 		data.Username = types.StringValue(val)
 	}
 	if val, ok := dataMap[fPassword]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fPassword))
+		tflog.Info(ctx, fmt.Sprintf(msg, fPassword, val))
 		data.Password = types.StringValue(val)
 	}
 	if val, ok := dataMap[fP12Cert]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fP12Cert))
+		tflog.Info(ctx, fmt.Sprintf(msg, fP12Cert, val))
 		data.P12Certificate = types.StringValue(val)
 	}
 	if val, ok := dataMap[fP12Password]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fP12Password))
+		tflog.Info(ctx, fmt.Sprintf(msg, fP12Password, val))
 		data.P12Password = types.StringValue(val)
 	}
 	if val, ok := dataMap[fAccessToken]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fAccessToken))
+		tflog.Info(ctx, fmt.Sprintf(msg, fAccessToken, val))
 		data.AccessToken = types.StringValue(val)
 	}
 	if val, ok := dataMap[fRefreshToken]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fRefreshToken))
+		tflog.Info(ctx, fmt.Sprintf(msg, fRefreshToken, val))
 		data.RefreshToken = types.StringValue(val)
 	}
-	if val, ok := dataMap[fClientID]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fClientID))
-		data.ClientID = types.StringValue(val)
-	}
 	if val, ok := dataMap[fTrustBundle]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fTrustBundle))
+		tflog.Info(ctx, fmt.Sprintf(msg, fTrustBundle, val))
 		data.TrustBundle = types.StringValue(val)
 	}
 
-	resp.State.Set(ctx, data)
-}
-
-type timeoutUnknownModifier struct{}
-
-func (m timeoutUnknownModifier) Description(ctx context.Context) string {
-	return "Allow token refresh before token expires."
-}
-
-func (m timeoutUnknownModifier) MarkdownDescription(ctx context.Context) string {
-	return "Allow token refresh before token expires."
-}
-
-func (m timeoutUnknownModifier) PlanModifyInt64(ctx context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
-	var data credentialResourceData
-	diags := req.Plan.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-	if data.ExpirationDate.ValueInt64() < time.Now().Unix() {
-		resp.PlanValue = types.Int64Unknown()
+	clientID := defaultClientID
+	if val, ok := dataMap[fClientID]; ok {
+		clientID = val
 	}
-}
+	tflog.Info(ctx, fmt.Sprintf(msg, fClientID, clientID))
+	data.ClientID = types.StringValue(clientID)
 
-func (m timeoutUnknownModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	var data credentialResourceData
-	diags := req.Plan.Get(ctx, &data)
+	refreshWindow := defaultRefreshWindow
+	if val, ok := dataMap[fRefreshWindow]; ok {
+		valInt, err := strconv.Atoi(val)
+		if err != nil {
+			details := fmt.Sprintf("%s: %s", msgImportFail, err.Error())
+			resp.Diagnostics.AddError(msgCredentialResourceError, details)
+			return
+		}
+		refreshWindow = valInt
+	}
+	tflog.Info(ctx, fmt.Sprintf(msg, fRefreshWindow, fmt.Sprintf("%d", refreshWindow)))
+	data.RefreshWindow = types.Int64Value(int64(refreshWindow))
+
+	tflog.Debug(ctx, fmt.Sprintf("data struct: %v", data))
+	diags := resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-	if data.ExpirationDate.ValueInt64() < time.Now().Unix() {
-		resp.PlanValue = types.StringUnknown()
-
+	if resp.Diagnostics.HasError() {
+		return
 	}
 }
 

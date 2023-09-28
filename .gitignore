@@ -1,0 +1,5 @@
+/terraform.d/
+/.terraform/
+/.terraform.lock.hcl
+/pkg/
+/terraform.tfstate

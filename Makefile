@@ -8,18 +8,6 @@ PLUGIN_NAME := terraform-provider-venafi-token
 PLUGIN_DIR := pkg/bin
 DIST_DIR := pkg/dist
 
-ifdef BUILD_NUMBER
-VERSION := $(shell git describe --abbrev=0 --tags)+$(BUILD_NUMBER)
-else
-VERSION := $(shell git describe --abbrev=0 --tags)
-endif
-
-ifdef RELEASE_VERSION
-ifneq ($(RELEASE_VERSION), none)
-VERSION := ${RELEASE_VERSION}
-endif
-endif
-
 # release artifacts must not include the 'v' prefix
 ZIP_VERSION := $(shell echo ${VERSION} | cut -c 2-)
 
@@ -61,7 +49,7 @@ else
 endif
 
 TERRAFORM_TEST_VERSION := 99.9.9
-TERRAFORM_TEST_DIR := terraform.d/plugins/registry.terraform.io/venafi/venafi/$(TERRAFORM_TEST_VERSION)/$(OS_STR)_$(CPU_STR)
+TERRAFORM_TEST_DIR := terraform.d/plugins/registry.terraform.io/venafi/venafi-token/$(TERRAFORM_TEST_VERSION)/$(OS_STR)_$(CPU_STR)
 
 os:
 	@echo $(OS_STRING)
