@@ -26,7 +26,7 @@ func (m credentialUnknownModifier) MarkdownDescription(_ context.Context) string
 }
 
 func (m credentialUnknownModifier) PlanModifyInt64(ctx context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
-	tflog.Info(ctx, "running venafi_credential plan modifier for int64")
+	tflog.Info(ctx, fmt.Sprintf("running venafi_credential plan modifier for %s", req.Path.String()))
 	var data model.CredentialResourceData
 	diags := req.Plan.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -36,6 +36,7 @@ func (m credentialUnknownModifier) PlanModifyInt64(ctx context.Context, req plan
 
 	// Mark resource for update if there is no access token
 	if data.AccessToken.IsNull() {
+		tflog.Info(ctx, "no access token, marking resource for update")
 		resp.PlanValue = types.Int64Unknown()
 		return
 	}
@@ -48,8 +49,11 @@ func (m credentialUnknownModifier) PlanModifyInt64(ctx context.Context, req plan
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("token state: expired=%t, expirationDate=%d", expired, expirationDate))
+
 	// If token already expired, mark resource for update
 	if expired {
+		tflog.Info(ctx, "access token expired, marking resource for update")
 		resp.PlanValue = types.Int64Unknown()
 		return
 	}
@@ -57,15 +61,13 @@ func (m credentialUnknownModifier) PlanModifyInt64(ctx context.Context, req plan
 	// If token not expired, check expiration date is on refresh window. If so, mark resource for update
 	refreshWindowSeconds := data.ExpirationDate.ValueInt64() * 24 * 60 * 60
 	if *expirationDate < (time.Now().Unix() - refreshWindowSeconds) {
+		tflog.Info(ctx, "access token expiration within refresh window, marking resource for update")
 		resp.PlanValue = types.Int64Unknown()
 	}
-	//path := req.Path.String()
-	//tflog.Info(ctx, fmt.Sprintf("modifying int64 attribute [%s]", path))
-	//resp.PlanValue = types.Int64Unknown()
 }
 
 func (m credentialUnknownModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	tflog.Info(ctx, "running venafi_credential plan modifier for strings")
+	tflog.Info(ctx, fmt.Sprintf("running venafi_credential plan modifier for %s", req.Path.String()))
 
 	var data model.CredentialResourceData
 	diags := req.Plan.Get(ctx, &data)
@@ -76,6 +78,7 @@ func (m credentialUnknownModifier) PlanModifyString(ctx context.Context, req pla
 
 	// Mark resource for update if there is no access token
 	if data.AccessToken.IsNull() {
+		tflog.Info(ctx, "no access token, marking resource for update")
 		resp.PlanValue = types.StringUnknown()
 		return
 	}
@@ -87,9 +90,11 @@ func (m credentialUnknownModifier) PlanModifyString(ctx context.Context, req pla
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to verify token, got error: %s", err))
 		return
 	}
+	tflog.Info(ctx, fmt.Sprintf("token state: expired=%t, expirationDate=%d", expired, expirationDate))
 
 	// If token already expired, mark resource for update
 	if expired {
+		tflog.Info(ctx, "access token expired, marking resource for update")
 		resp.PlanValue = types.StringUnknown()
 		return
 	}
@@ -97,9 +102,7 @@ func (m credentialUnknownModifier) PlanModifyString(ctx context.Context, req pla
 	// If token not expired, check expiration date is on refresh window. If so, mark resource for update
 	refreshWindowSeconds := data.ExpirationDate.ValueInt64() * 24 * 60 * 60
 	if *expirationDate < (time.Now().Unix() - refreshWindowSeconds) {
+		tflog.Info(ctx, "access token expiration within refresh window, marking resource for update")
 		resp.PlanValue = types.StringUnknown()
 	}
-	//path := req.Path.String()
-	//tflog.Info(ctx, fmt.Sprintf("modifying string attribute [%s]", path))
-	//resp.PlanValue = types.StringUnknown()
 }

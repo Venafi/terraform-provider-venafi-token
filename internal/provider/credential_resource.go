@@ -135,9 +135,8 @@ func (r *CredentialResource) Create(_ context.Context, _ resource.CreateRequest,
 	return
 }
 
-func (r *CredentialResource) Read(ctx context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
+func (r *CredentialResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 	// Not possible
-	tflog.Info(ctx, "ACCESSING VENAFI_CREDENTIAL READ OPERATION")
 }
 
 func (r *CredentialResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
