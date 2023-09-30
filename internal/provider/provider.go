@@ -23,7 +23,7 @@ func (p *VenafiTokenProvider) Metadata(_ context.Context, _ provider.MetadataReq
 
 func (p *VenafiTokenProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "This is for refreshing Venafi tokens for use with Venafi provider.",
+		MarkdownDescription: "This is for refreshing Venafi tokens for use with venafi-provider.",
 	}
 }
 

@@ -4,11 +4,11 @@ terraform {
       source = "hashicorp/random"
     }
     venafi-token = {
-      source = "Venafi/venafi-token"
-      version = "99.9.9"
+      source  = "Venafi/venafi-token"
+      version = "0.1.0"
     }
     venafi = {
-      source = "Venafi/venafi"
+      source  = "Venafi/venafi"
       version = "0.17.0"
     }
   }
