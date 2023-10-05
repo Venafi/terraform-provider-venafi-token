@@ -170,13 +170,9 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// If token not expired, check expiration date is on refresh window. If so, request new pair
+	// Refresh window is in days, we need to convert it to seconds: n days * 24 hours * 60 minutes * 60 seconds
 	refreshWindowSeconds := data.RefreshWindow.ValueInt64() * 24 * 60 * 60
-	tflog.Info(ctx, fmt.Sprintf("Refresh window=%d days", data.RefreshWindow.ValueInt64()))
-	tflog.Info(ctx, fmt.Sprintf("Refresh window=%d seconds", refreshWindowSeconds))
-	tflog.Info(ctx, fmt.Sprintf("Token expiration date=%d", data.ExpirationDate.ValueInt64()))
-	tflog.Info(ctx, fmt.Sprintf("Expiration - Refresh=%d", data.ExpirationDate.ValueInt64()-refreshWindowSeconds))
-	tflog.Info(ctx, fmt.Sprintf("Time Now=%d", time.Now().Unix()))
+	// If token not expired, check expiration date is on refresh window. If so, request new pair
 	if data.ExpirationDate.ValueInt64()-refreshWindowSeconds < time.Now().Unix() {
 		tflog.Info(ctx, "access token expiration within refresh window, retrieving a new token pair")
 		err = rotateToken(ctx, &data)
