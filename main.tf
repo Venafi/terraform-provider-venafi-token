@@ -1,6 +1,17 @@
 /*
 This is an example Terraform file to show capabilities of the Venafi-token integration.
 */
+variable "TPP_URL" {
+  default = ""
+}
+
+variable "TPP_ZONE" {
+  default = ""
+}
+
+variable "TRUST_BUNDLE" {
+  default = ""
+}
 
 resource "venafi-token_credential" "example" {}
 
@@ -12,16 +23,16 @@ resource "random_string" "cn" {
 }
 
 provider "venafi" {
-  alias        = "dev"
-  url          = "https://supertreat.venqa.venafi.com"
-  zone         = "Open Source\\vcert"
-  trust_bundle = file("/Users/rvela/venafi/supertreat/bundle.cer")
+  alias        = "tpp_token"
+  url          = var.TPP_URL
+  zone         = var.TPP_ZONE
+  trust_bundle = file(var.TRUST_BUNDLE)
   access_token = venafi-token_credential.example.access_token
 }
 
 resource "venafi_certificate" "dev_certificate" {
   //Name of the used provider
-  provider    = venafi.dev
+  provider    = venafi.tpp_token
   common_name = "dev-${random_string.cn.result}.venafi.example.com"
 
   //Key encryption algorithm

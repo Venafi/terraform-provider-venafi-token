@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -90,21 +90,14 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			fAccessToken: schema.StringAttribute{
 				MarkdownDescription: "Access token used for authorization to TLSPDC",
-				Optional:            true,
 				Computed:            true,
 				Sensitive:           true,
-				PlanModifiers: []planmodifier.String{
-					credentialUnknownModifier{},
-				},
 			},
 			fRefreshToken: schema.StringAttribute{
 				MarkdownDescription: "Token used to request a new token pair (access/refresh token) from a TLSPDC instance",
 				Optional:            true,
 				Computed:            true,
 				Sensitive:           true,
-				PlanModifiers: []planmodifier.String{
-					credentialUnknownModifier{},
-				},
 			},
 			fClientID: schema.StringAttribute{
 				MarkdownDescription: "Application that will be using the token",
@@ -115,9 +108,6 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				MarkdownDescription: "Expiration date of the access token",
 				Optional:            true,
 				Computed:            true,
-				PlanModifiers: []planmodifier.Int64{
-					credentialUnknownModifier{},
-				},
 			},
 			fTrustBundle: schema.StringAttribute{
 				MarkdownDescription: "Use to specify a base64-encoded, PEM-formatted file that contains certificates to be trust anchors for all communications with the Venafi TLSPDC instance",
@@ -138,42 +128,70 @@ func (r *CredentialResource) Create(_ context.Context, _ resource.CreateRequest,
 	return
 }
 
-func (r *CredentialResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
-	// Not possible
-}
-
-func (r *CredentialResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	tflog.Info(ctx, "updating credential resource")
-
+func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	tflog.Info(ctx, fmt.Sprintf("reading credential resource"))
 	var data model.CredentialResourceData
-	var state model.CredentialResourceData
-
-	diags := req.Plan.Get(ctx, &data)
+	diags := req.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	diags = req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	// No access token, request a new pair right away
+	if data.AccessToken.IsNull() {
+		tflog.Info(ctx, "no access token, retrieving a new token pair")
+		err := rotateToken(ctx, &data)
+		if err != nil {
+			reportClientError(ctx, err, resp)
+			return
+		}
+		resp.State.Set(ctx, data)
 		return
 	}
 
-	client := vcertclient.New(ctx, state)
-	clientResp, err := client.RequestNewTokenPair()
+	// Got access token, check expiration
+	client := vcertclient.New(ctx, data)
+	expired, err := client.VerifyTokenExpired()
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("client error: %s", err.Error()))
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to rotate token, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to verify token expiration, got error: %s", err))
 		return
 	}
 
-	data.AccessToken = types.StringValue(clientResp.AccessToken)
-	data.ExpirationDate = types.Int64Value(clientResp.Expires)
-	data.RefreshToken = types.StringValue(clientResp.RefreshToken)
+	// If token already expired, request new pair
+	if expired {
+		tflog.Info(ctx, "access token expired, retrieving a new token pair")
+		err = rotateToken(ctx, &data)
+		if err != nil {
+			reportClientError(ctx, err, resp)
+			return
+		}
+		resp.State.Set(ctx, data)
+		return
+	}
 
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	// Refresh window is in days, we need to convert it to seconds: n days * 24 hours * 60 minutes * 60 seconds
+	refreshWindowSeconds := data.RefreshWindow.ValueInt64() * 24 * 60 * 60
+	// If token not expired, check expiration date is on refresh window. If so, request new pair
+	if data.ExpirationDate.ValueInt64()-refreshWindowSeconds < time.Now().Unix() {
+		tflog.Info(ctx, "access token expiration within refresh window, retrieving a new token pair")
+		err = rotateToken(ctx, &data)
+		if err != nil {
+			reportClientError(ctx, err, resp)
+			return
+		}
+
+		resp.State.Set(ctx, data)
+		return
+	}
+
+	// Token is valid, nothing to do here
+	tflog.Info(ctx, "access token valid")
+	return
+}
+
+func (r *CredentialResource) Update(ctx context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+	tflog.Info(ctx, "updating credential resource")
 }
 
 func (r *CredentialResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -290,4 +308,23 @@ func getValuesMap(ctx context.Context, values string) (map[string]string, error)
 	}
 
 	return dict, nil
+}
+
+func rotateToken(ctx context.Context, data *model.CredentialResourceData) error {
+	client := vcertclient.New(ctx, *data)
+	clientResp, err := client.RequestNewTokenPair()
+	if err != nil {
+		return err
+	}
+
+	data.AccessToken = types.StringValue(clientResp.AccessToken)
+	data.ExpirationDate = types.Int64Value(clientResp.Expires)
+	data.RefreshToken = types.StringValue(clientResp.RefreshToken)
+
+	return nil
+}
+
+func reportClientError(ctx context.Context, err error, resp *resource.ReadResponse) {
+	tflog.Error(ctx, fmt.Sprintf("client error: %s", err.Error()))
+	resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to rotate token, got error: %s", err.Error()))
 }

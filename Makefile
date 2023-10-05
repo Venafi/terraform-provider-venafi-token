@@ -57,11 +57,8 @@ os:
 all: build test testacc
 
 #Build
-build_dev_dynamic:
-	env CGO_ENABLED=0 GOOS=$(OS_STR)   GOARCH=$(CPU_STR) go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/$(OS_STR)/$(PLUGIN_NAME)_$(VERSION) || exit 1
-
 build_dev:
-	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME)_$(VERSION) || exit 1
+	env CGO_ENABLED=0 GOOS=$(OS_STR)   GOARCH=$(CPU_STR) go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/$(OS_STR)/$(PLUGIN_NAME)_$(VERSION) || exit 1
 
 build:
 	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME)_$(VERSION) || exit 1
@@ -130,7 +127,7 @@ fmtcheck:
 test_e2e: e2e_init
 
 # This step copies the built terraform plugin to the terraform folder structure, so  changes can be tested.
-e2e_init: build_dev_dynamic
+e2e_init: build_dev
 	mkdir -p $(TERRAFORM_TEST_DIR)
 	mv $(PLUGIN_DIR)/$(OS_STR)/$(PLUGIN_NAME)_$(VERSION) $(TERRAFORM_TEST_DIR)/$(PLUGIN_NAME)_v$(TERRAFORM_TEST_VERSION)
 	chmod 755 $(TERRAFORM_TEST_DIR)/$(PLUGIN_NAME)_v$(TERRAFORM_TEST_VERSION)

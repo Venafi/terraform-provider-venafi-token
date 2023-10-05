@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/Venafi/vcert/v5"
 	"github.com/Venafi/vcert/v5/pkg/endpoint"
@@ -46,40 +45,34 @@ func New(ctx context.Context, data model.CredentialResourceData) *Client {
 	}
 }
 
-func (c *Client) VerifyTokenExpired() (expired bool, expirationUnix *int64, err error) {
+func (c *Client) VerifyTokenExpired() (expired bool, err error) {
 	tflog.Info(c.context, "verifying access token validity")
 
 	config, err := c.createVCertConfig()
 	if err != nil {
 		tflog.Error(c.context, err.Error())
-		return false, nil, err
+		return false, err
 	}
 
 	vClient, err := vcert.NewClient(config, false)
 	if err != nil {
 		tflog.Error(c.context, err.Error())
-		return false, nil, err
+		return false, err
 	}
 
 	auth := &endpoint.Authentication{
 		AccessToken: c.credData.AccessToken.ValueString(),
 	}
 
-	resp, err := vClient.(*tpp.Connector).VerifyAccessToken(auth)
+	//Due to limitations in TPP API, we cannot retrieve the access token expiration time from the verify function
+	_, err = vClient.(*tpp.Connector).VerifyAccessToken(auth)
 	if err != nil {
 		msg := fmt.Sprintf("%s: %s", msgVcertClientError, err.Error())
 		tflog.Info(c.context, msg)
-		return true, nil, nil
+		return true, nil
 	}
 
-	unixTime, err := convertISO8601DateToUnix(resp.Expires)
-	if err != nil {
-		err2 := fmt.Errorf("%s: failed to convert ISO8601 date to epoch time: %w", msgVcertClientError, err)
-		tflog.Info(c.context, err2.Error())
-		return false, nil, err2
-	}
-
-	return false, &unixTime, nil
+	return false, nil
 }
 
 func (c *Client) RequestNewTokenPair() (*RefreshTokenResponse, error) {
@@ -326,12 +319,4 @@ func (c *Client) createVCertConfig() (*vcert.Config, error) {
 	}
 
 	return &config, nil
-}
-
-func convertISO8601DateToUnix(iso8601Date string) (int64, error) {
-	t, err := time.Parse(time.RFC3339, iso8601Date)
-	if err != nil {
-		return -1, fmt.Errorf("failed to parse ISO8601 date: %w", err)
-	}
-	return t.Unix(), nil
 }
