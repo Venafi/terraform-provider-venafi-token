@@ -125,11 +125,10 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 
 func (r *CredentialResource) Create(_ context.Context, _ resource.CreateRequest, resp *resource.CreateResponse) {
 	resp.Diagnostics.AddError(msgCredentialResourceError, "credential resource cannot be created, only imported.")
-	return
 }
 
 func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	tflog.Info(ctx, fmt.Sprintf("reading credential resource"))
+	tflog.Info(ctx, "reading credential resource")
 	var data model.CredentialResourceData
 	diags := req.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -187,7 +186,6 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	// Token is valid, nothing to do here
 	tflog.Info(ctx, "access token valid")
-	return
 }
 
 func (r *CredentialResource) Update(ctx context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {

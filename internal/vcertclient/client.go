@@ -251,7 +251,7 @@ func (c *Client) getAccessToken(useClientCertificate bool) (*RefreshTokenRespons
 }
 
 func (c *Client) configureTLSClient() error {
-	tflog.Info(c.context, fmt.Sprintf("configuring TLS client"))
+	tflog.Info(c.context, "configuring TLS client")
 
 	p12Location := c.credData.P12Certificate.ValueString()
 	password := c.credData.P12Password.ValueString()
