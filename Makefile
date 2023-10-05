@@ -111,7 +111,7 @@ dev: clean fmtcheck
 test: fmtcheck linter test_go testacc test_e2e
 
 test_go:
-	go test -v -coverprofile=cov1.out ./venafi
+	go test -v -coverprofile=cov1.out ./internal/...
 	go tool cover -func=cov1.out
 
 testacc:
