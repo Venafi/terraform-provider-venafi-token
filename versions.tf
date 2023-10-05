@@ -5,7 +5,7 @@ terraform {
     }
     venafi-token = {
       source  = "Venafi/venafi-token"
-      version = "0.1.0"
+#      version = "0.1.0"
     }
     venafi = {
       source  = "Venafi/venafi"

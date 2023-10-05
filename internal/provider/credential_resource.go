@@ -216,6 +216,7 @@ func (r *CredentialResource) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 
 	resp.State.RemoveResource(ctx)
+	tflog.Info(ctx, "successfully revoked access token")
 }
 
 func (r *CredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
