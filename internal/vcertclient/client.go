@@ -305,17 +305,19 @@ func (c *Client) configureTLSClient() error {
 }
 
 func (c *Client) createVCertConfig() (*vcert.Config, error) {
-	location := c.credData.TrustBundle.ValueString()
-	trustBundle, err := os.ReadFile(location)
-	if err != nil {
-		return nil, fmt.Errorf("%s: unable to read trust bundle file at [%s]: %w", msgVcertClientError, location, err)
+	config := vcert.Config{
+		ConnectorType: endpoint.ConnectorTypeTPP,
+		BaseUrl:       c.credData.URL.ValueString(),
+		LogVerbose:    true,
 	}
 
-	config := vcert.Config{
-		ConnectorType:   endpoint.ConnectorTypeTPP,
-		BaseUrl:         c.credData.URL.ValueString(),
-		ConnectionTrust: string(trustBundle),
-		LogVerbose:      true,
+	if !c.credData.TrustBundle.IsNull() {
+		location := c.credData.TrustBundle.ValueString()
+		data, err := os.ReadFile(location)
+		if err != nil {
+			return nil, fmt.Errorf("%s: unable to read trust bundle file at [%s]: %w", msgVcertClientError, location, err)
+		}
+		config.ConnectionTrust = string(data)
 	}
 
 	return &config, nil
