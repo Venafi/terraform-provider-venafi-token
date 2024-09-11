@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -299,7 +300,7 @@ func getValuesMap(ctx context.Context, values string) (map[string]string, error)
 		if !found {
 			msg := fmt.Sprintf("no separator found on value: %s", item)
 			tflog.Info(ctx, msg)
-			return nil, fmt.Errorf(msg)
+			return nil, errors.New(msg)
 		}
 		tflog.Debug(ctx, fmt.Sprintf("credential field found: %s = %s", key, value))
 		dict[key] = value
