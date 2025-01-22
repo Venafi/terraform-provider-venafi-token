@@ -4,3 +4,4 @@
 /pkg/
 /terraform.tfstate
 .idea
+vendor
