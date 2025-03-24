@@ -11,8 +11,8 @@ github.com/Microsoft/go-winio v0.5.2 h1:a9IhgEQBCUEk6QCdml9CiJGhAws+YwffDHEMp1VM
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=
 github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 h1:wPbRQzjjwFc0ih8puEVAOFGELsn1zoIIYdxvML7mDxA=
 github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8/go.mod h1:I0gYDMZ6Z5GRU7l58bNFSkPTFN6Yl12dsUlAZ8xy98g=
-github.com/Venafi/vcert/v5 v5.8.1 h1:N1p4timBe8Q1sx+Gpa/VV66dCDaUaZSXxHXUvJgzqDY=
-github.com/Venafi/vcert/v5 v5.8.1/go.mod h1:Bw2mwQIrTSPoPUx8iYrH8bVogx6vynQCvxFDhdDq0jI=
+github.com/Venafi/vcert/v5 v5.8.3 h1:aL5e831gkZQsXiCSY94SMiNnUpnbYXIokVad5ci03+4=
+github.com/Venafi/vcert/v5 v5.8.3/go.mod h1:Bw2mwQIrTSPoPUx8iYrH8bVogx6vynQCvxFDhdDq0jI=
 github.com/acomagu/bufpipe v1.0.4 h1:e3H4WUzM3npvo5uv95QuJM3cQspFNtFBzvJ2oNjKIDQ=
 github.com/acomagu/bufpipe v1.0.4/go.mod h1:mxdxdup/WdsKVreO5GpW4+M/1CE2sMG4jeGJ2sYmHc4=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 h1:bvNMNQO63//z+xNgfBlViaCIJKLlCJ6/fmUseuG0wVQ=
