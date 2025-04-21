@@ -1,9 +1,10 @@
 module github.com/terraform-providers/terraform-provider-venafi-token
 
 go 1.22
+toolchain go1.24.1
 
 require (
-	github.com/Venafi/vcert/v5 v5.8.1
+	github.com/Venafi/vcert/v5 v5.9.0
 	github.com/hashicorp/terraform-plugin-docs v0.16.0
 	github.com/hashicorp/terraform-plugin-framework v1.4.1
 	github.com/hashicorp/terraform-plugin-log v0.9.0
@@ -55,7 +56,7 @@ require (
 	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/sosodev/duration v1.2.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.14 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.24 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
