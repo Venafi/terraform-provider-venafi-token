@@ -57,7 +57,7 @@ resource "venafi_certificate" "dev_certificate" {
   ]
 
   //private key password
-  key_password = "newPassw0rd!"
+  key_password = "CyberArkT3stP4ZZC0de%jQX^J=4H"
 }
 
 //output certificate
