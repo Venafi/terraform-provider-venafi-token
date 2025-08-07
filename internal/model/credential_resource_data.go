@@ -16,4 +16,5 @@ type CredentialResourceData struct {
 	ExpirationDate types.Int64  `tfsdk:"expiration"`
 	TrustBundle    types.String `tfsdk:"trust_bundle"`
 	RefreshWindow  types.Int64  `tfsdk:"refresh_window"`
+	Scope          types.String `tfsdk:"scope"`
 }
