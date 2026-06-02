@@ -224,11 +224,12 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 		resp.Diagnostics.AddError(msgCredentialResourceError, details)
 		return
 	}
-	tflog.Debug(ctx, fmt.Sprintf("field map: %v", dataMap))
+	tflog.Debug(ctx, fmt.Sprintf("field map: %d fields parsed", len(dataMap)))
 
 	data := model.CredentialResourceData{}
 
 	msg := "saving attribute to terraform state: [%s]=%s"
+	msgSensitive := "saving attribute to terraform state: [%s]=***"
 	if val, ok := dataMap[fURL]; ok {
 		tflog.Info(ctx, fmt.Sprintf(msg, fURL, val))
 		data.URL = types.StringValue(val)
@@ -238,7 +239,7 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 		data.Username = types.StringValue(val)
 	}
 	if val, ok := dataMap[fPassword]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fPassword, val))
+		tflog.Info(ctx, fmt.Sprintf(msgSensitive, fPassword))
 		data.Password = types.StringValue(val)
 	}
 	if val, ok := dataMap[fP12Cert]; ok {
@@ -246,15 +247,15 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 		data.P12Certificate = types.StringValue(val)
 	}
 	if val, ok := dataMap[fP12Password]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fP12Password, val))
+		tflog.Info(ctx, fmt.Sprintf(msgSensitive, fP12Password))
 		data.P12Password = types.StringValue(val)
 	}
 	if val, ok := dataMap[fAccessToken]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fAccessToken, val))
+		tflog.Info(ctx, fmt.Sprintf(msgSensitive, fAccessToken))
 		data.AccessToken = types.StringValue(val)
 	}
 	if val, ok := dataMap[fRefreshToken]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fRefreshToken, val))
+		tflog.Info(ctx, fmt.Sprintf(msgSensitive, fRefreshToken))
 		data.RefreshToken = types.StringValue(val)
 	}
 	if val, ok := dataMap[fTrustBundle]; ok {
@@ -282,7 +283,7 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 	tflog.Info(ctx, fmt.Sprintf(msg, fRefreshWindow, fmt.Sprintf("%d", refreshWindow)))
 	data.RefreshWindow = types.Int64Value(int64(refreshWindow))
 
-	tflog.Debug(ctx, fmt.Sprintf("data struct: %v", data))
+	tflog.Debug(ctx, "data struct populated, setting state")
 	diags := resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -302,7 +303,7 @@ func getValuesMap(ctx context.Context, values string) (map[string]string, error)
 			tflog.Info(ctx, msg)
 			return nil, errors.New(msg)
 		}
-		tflog.Debug(ctx, fmt.Sprintf("credential field found: %s = %s", key, value))
+		tflog.Debug(ctx, fmt.Sprintf("credential field found: %s", key))
 		dict[key] = value
 	}
 
