@@ -243,7 +243,7 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 		data.Password = types.StringValue(val)
 	}
 	if val, ok := dataMap[fP12Cert]; ok {
-		tflog.Info(ctx, fmt.Sprintf(msg, fP12Cert, val))
+		tflog.Info(ctx, fmt.Sprintf(msgSensitive, fP12Cert))
 		data.P12Certificate = types.StringValue(val)
 	}
 	if val, ok := dataMap[fP12Password]; ok {
