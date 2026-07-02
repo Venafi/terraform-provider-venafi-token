@@ -6,7 +6,7 @@ require (
 	github.com/Venafi/vcert/v5 v5.13.7
 	github.com/hashicorp/terraform-plugin-docs v0.25.0
 	github.com/hashicorp/terraform-plugin-framework v1.4.1
-	github.com/hashicorp/terraform-plugin-log v0.9.0
+	github.com/hashicorp/terraform-plugin-log v0.10.0
 	golang.org/x/crypto v0.53.0
 )
 
