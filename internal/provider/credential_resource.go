@@ -30,6 +30,7 @@ const (
 	fExpirationDate = "expiration"
 	fTrustBundle    = "trust_bundle"
 	fRefreshWindow  = "refresh_window"
+	fScope          = "scope"
 
 	// messages
 	msgCredentialResourceError = "credential resource error"
@@ -117,6 +118,11 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			fRefreshWindow: schema.Int64Attribute{
 				MarkdownDescription: "number of days before expiration where a token refresh should be done",
+				Optional:            true,
+				Computed:            true,
+			},
+			fScope: schema.StringAttribute{
+				MarkdownDescription: "Scopes requested for the access token",
 				Optional:            true,
 				Computed:            true,
 			},
@@ -261,6 +267,10 @@ func (r *CredentialResource) ImportState(ctx context.Context, req resource.Impor
 	if val, ok := dataMap[fTrustBundle]; ok {
 		tflog.Info(ctx, fmt.Sprintf(msg, fTrustBundle, val))
 		data.TrustBundle = types.StringValue(val)
+	}
+	if val, ok := dataMap[fScope]; ok {
+		tflog.Info(ctx, fmt.Sprintf(msg, fScope, val))
+		data.Scope = types.StringValue(val)
 	}
 
 	clientID := defaultClientID

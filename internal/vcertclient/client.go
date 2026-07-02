@@ -228,6 +228,7 @@ func (c *Client) getAccessToken(useClientCertificate bool) (*RefreshTokenRespons
 
 	auth := &endpoint.Authentication{
 		ClientId: c.credData.ClientID.ValueString(),
+		Scope: c.credData.Scope.ValueString(),
 	}
 
 	if useClientCertificate {
