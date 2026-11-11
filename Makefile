@@ -147,6 +147,10 @@ e2e_init: build_dev
 	chmod 755 $(TERRAFORM_TEST_DIR)/$(PLUGIN_NAME)_v$(TERRAFORM_TEST_VERSION)
 	terraform init
 
+# Pinned and installed with go install: the upstream install.sh picks the wrong
+# checksum since golangci-lint started publishing .sbom.json files (v2.15.0).
+GOLANGCI_LINT_VERSION ?= v2.15.0
+
 linter:
-	@golangci-lint --version || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	golangci-lint run
